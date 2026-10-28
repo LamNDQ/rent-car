@@ -1,0 +1,38 @@
+services:
+  # Next.js FE
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    image: car_rental_client_image:v1
+    container_name: car_rental_client
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+    depends_on:
+      - api
+  # Nest.js BE
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: car_rental_server_image:v1
+    container_name: car_rental_server
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./server/.env
+    depends_on:
+      - mongo_db
+    restart: unless-stopped
+  # MongoDB
+  mongo_db:
+    image: car_rental_mongo_image:v1
+    container_name: car_rental_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+volumes:
+  mongo_data:

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Card, Badge } from "@/components/ui";
 import type { Car } from "@/types";
 
@@ -43,11 +44,18 @@ export function CarList({ cars, isLoading, error }: CarListProps) {
         <Link key={car._id} href={`/user/car/${car._id}`} className="block">
           <Card className="group overflow-hidden flex flex-col p-0 border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/60 hover:border-zinc-700 transition-all duration-300 h-full">
             <div className="relative aspect-video overflow-hidden bg-zinc-950/50">
-              {/* Placeholder for car image */}
-
-              <div className="flex items-center justify-center h-full text-zinc-700 font-black text-3xl uppercase italic opacity-20 group-hover:opacity-40 transition-opacity">
-                {car.brand}
-              </div>
+              {car.imgUrl?.[0] ?
+                <Image
+                  src={car.imgUrl[0]}
+                  alt={`${car.brand} ${car.carModel}`}
+                  fill
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                />
+              : <div className="flex items-center justify-center h-full text-zinc-700 font-black text-3xl uppercase italic opacity-20 group-hover:opacity-40 transition-opacity">
+                  {car.brand}
+                </div>
+              }
               <div className="absolute top-3 right-3">
                 <Badge
                   className="text-[10px] px-2 py-0.5"

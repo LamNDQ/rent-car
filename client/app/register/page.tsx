@@ -3,7 +3,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@app/hooks";
-import { StoredUser } from "@app/types";
 
 export default function RegisterPage() {
   const router = useRouter();

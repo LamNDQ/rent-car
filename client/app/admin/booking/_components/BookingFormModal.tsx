@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import type { Booking, CreateBookingPayload } from "@/types";
 import { Button, Input } from "@/components/ui";
 
@@ -21,35 +21,16 @@ const VOUCHER_HINTS = ["SUMMER20", "WELCOME10", "FLASH15", "VIP30"];
 
 export function BookingFormModal({ isOpen, onClose, onSave, booking }: BookingFormModalProps) {
     const isEdit = !!booking;
-    const [formData, setFormData] = useState({
-        carId: "",
-        startDate: getDateString(0),
-        endDate: getDateString(1),
-        voucherCode: "",
-    });
+    const [formData, setFormData] = useState(() => ({
+        carId: booking?.carId ?? "",
+        startDate: booking ? booking.startDate.split("T")[0] : getDateString(0),
+        endDate: booking ? booking.endDate.split("T")[0] : getDateString(1),
+        voucherCode: booking?.voucherCode ?? "",
+    }));
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const todayStr = useMemo(() => getDateString(0), []);
-
-    useEffect(() => {
-        if (booking) {
-            setFormData({
-                carId: booking.carId,
-                startDate: booking.startDate.split("T")[0],
-                endDate: booking.endDate.split("T")[0],
-                voucherCode: booking.voucherCode || "",
-            });
-        } else {
-            setFormData({
-                carId: "",
-                startDate: getDateString(0),
-                endDate: getDateString(1),
-                voucherCode: "",
-            });
-        }
-        setError(null);
-    }, [booking, isOpen]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;

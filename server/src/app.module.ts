@@ -12,10 +12,11 @@ import { CarController } from '@modules/car/controllers';
 import { UserModule } from '@modules/user/user.module';
 import { SsoModule } from './modules/sso/sso.module';
 import { AuthModule } from './auth/auth.module';
-import { ChatModule } from './modules/chat/chat.module';
 import { JwtStrategy } from './auth/jwt/jwt.strategy';
 import { RolesGuard } from './auth/roles/roles.guard';
 import { Reflector } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -23,6 +24,12 @@ import { Reflector } from '@nestjs/core';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -37,7 +44,6 @@ import { Reflector } from '@nestjs/core';
     UserModule,
     SsoModule,
     AuthModule,
-    ChatModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -51,7 +57,16 @@ import { Reflector } from '@nestjs/core';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService, JwtStrategy, RolesGuard, Reflector],
+  providers: [
+    AppService,
+    JwtStrategy,
+    RolesGuard,
+    Reflector,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

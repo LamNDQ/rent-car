@@ -125,10 +125,11 @@ export class BookingService {
     id: string,
     userId: string,
     dto: UpdateBookingDto,
+    userRole?: string,
   ): Promise<BookingResponseDto> {
     const booking = await this.bookingRepository.findById(id);
     if (!booking) throw new NotFoundException(BOOKING_ERRORS.NOT_FOUND);
-    if (booking.userId.toString() !== userId)
+    if (userRole !== 'admin' && booking.userId.toString() !== userId)
       throw new BadRequestException(BOOKING_ERRORS.FORBIDDEN);
     if (booking.status === BOOKING_STATUS.CANCELLED)
       throw new BadRequestException('Cannot update a cancelled booking');
@@ -162,14 +163,14 @@ export class BookingService {
       dto.voucherCode !== undefined ? dto.voucherCode : booking.voucherCode;
 
     // Reuse the role captured at booking creation so VIP discount stays stable
-    const userRole = booking.userRole || 'normal';
+    const bookingUserRole = booking.userRole || 'normal';
 
     const { breakdown, invalidVoucher } =
       this.pricingService.calculateBreakdown(
         car.basePrice,
         start,
         end,
-        userRole,
+        bookingUserRole,
         voucherCode ?? undefined,
       );
     if (invalidVoucher)
@@ -191,9 +192,21 @@ export class BookingService {
 
   // ── Delete a booking (anyone can delete) ─────────────────────────────────
 
-  async deleteBooking(id: string): Promise<{ message: string }> {
+  async deleteBooking(
+    id: string,
+    userId?: string,
+    userRole?: string,
+  ): Promise<{ message: string }> {
     const booking = await this.bookingRepository.findById(id);
     if (!booking) throw new NotFoundException(BOOKING_ERRORS.NOT_FOUND);
+
+    if (
+      userRole !== 'admin' &&
+      userId &&
+      booking.userId.toString() !== userId
+    ) {
+      throw new BadRequestException(BOOKING_ERRORS.FORBIDDEN);
+    }
 
     await this.bookingRepository.hardDelete(id);
 

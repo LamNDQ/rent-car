@@ -16,7 +16,6 @@ export function Header() {
     { name: "Home", href: "/" },
     { name: "Cars", href: "/user/car" },
     { name: "Bookings", href: "/user/booking" },
-    { name: "Chat support", href: "/chat"},
     ...(user?.role === "admin" ? [{ name: "Admin", href: "/admin/car" }] : []),
   ];
 

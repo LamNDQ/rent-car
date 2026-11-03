@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@app/hooks";
 import { userApi } from "@app/lib/api/userApi";
@@ -29,13 +29,7 @@ export default function AdminUsersPage() {
     }
   }, [user, isAuthLoading, router]);
 
-  useEffect(() => {
-    if (user && user.role === "admin") {
-      fetchUsers();
-    }
-  }, [user]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
       const allUsers = await userApi.findAll();
@@ -45,7 +39,16 @@ export default function AdminUsersPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user?.role !== "admin") return;
+
+    const timer = setTimeout(() => {
+      void fetchUsers();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [user, fetchUsers]);
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users;

@@ -21,8 +21,8 @@ export function useBookings() {
     setError(null);
     try {
       const data = isAdmin
-        ? await bookingApi.getAll(user.id, user.role)
-        : await bookingApi.getMyBookings(user.id, user.role);
+        ? await bookingApi.getAll()
+        : await bookingApi.getMyBookings();
       setBookings(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -35,14 +35,14 @@ export function useBookings() {
     payload: CreateBookingPayload,
   ): Promise<BookingPreview> => {
     if (!user) throw new Error("Not authenticated");
-    return bookingApi.previewPrice(payload, user.id, user.role);
+    return bookingApi.previewPrice(payload);
   }, [user]);
 
   const createBooking = useCallback(async (
     payload: CreateBookingPayload,
   ): Promise<Booking> => {
     if (!user) throw new Error("Not authenticated");
-    const booking = await bookingApi.create(payload, user.id, user.role);
+    const booking = await bookingApi.create(payload);
     setBookings((prev) => [booking, ...prev]);
     return booking;
   }, [user]);
@@ -52,25 +52,53 @@ export function useBookings() {
     payload: Partial<Booking>,
   ): Promise<Booking> => {
     if (!user) throw new Error("Not authenticated");
-    const updated = await bookingApi.update(id, payload, user.id, user.role);
+    const updated = await bookingApi.update(id, payload);
     setBookings((prev) => prev.map((b) => (b.id === id ? updated : b)));
     return updated;
   }, [user]);
 
   const cancelBooking = useCallback(async (id: string) => {
     if (!user) throw new Error("Not authenticated");
-    await bookingApi.cancel(id, user.id, user.role);
+    await bookingApi.cancel(id);
     setBookings((prev) => prev.filter((b) => b.id !== id));
   }, [user]);
 
   useEffect(() => {
-    if (user) {
-      fetchBookings();
-    } else {
-      setBookings([]);
-      setLoading(false);
-    }
-  }, [fetchBookings, user]);
+    let isMounted = true;
+    const run = async () => {
+      if (!user) {
+        if (isMounted) {
+          setBookings([]);
+          setLoading(false);
+        }
+        return;
+      }
+      if (isMounted) {
+        setLoading(true);
+        setError(null);
+      }
+      try {
+        const data = user.role === "admin"
+          ? await bookingApi.getAll()
+          : await bookingApi.getMyBookings();
+        if (isMounted) {
+          setBookings(data);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : "Unknown error");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+    run();
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   return {
     bookings,

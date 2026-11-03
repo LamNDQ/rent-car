@@ -1,6 +1,6 @@
 "use client";
 
-import { House, CalendarCheck, Users, Car } from "lucide-react";
+import { House, CalendarCheck, Users } from "lucide-react";
 import Link from "next/link";
 
 // Map of links to display in the side navigation.

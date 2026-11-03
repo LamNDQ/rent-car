@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useCars } from "@/hooks/useCar";
 import { Container, Button, Badge } from "@/components/ui";
@@ -10,6 +11,7 @@ export default function CarDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { selectedCar, isLoading, error, fetchCarById } = useCars();
+  const [activeImage, setActiveImage] = useState(0);
 
   useEffect(() => {
     if (params.id) {
@@ -38,6 +40,9 @@ export default function CarDetailPage() {
     );
   }
 
+  const images = selectedCar.imgUrl ?? [];
+  const activeIndex = images.length > 0 ? Math.min(activeImage, images.length - 1) : 0;
+
   return (
     <Container className="py-8">
       <Button
@@ -49,11 +54,47 @@ export default function CarDetailPage() {
       </Button>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* Left: Image Placeholder */}
-        <div className="aspect-video bg-zinc-900 rounded-2xl overflow-hidden flex items-center justify-center border border-zinc-800">
-          <div className="text-zinc-800 font-black text-6xl uppercase italic opacity-50">
-            {selectedCar.brand}
+        {/* Left: Image gallery */}
+        <div className="flex flex-col gap-3">
+          <div className="relative aspect-video bg-zinc-900 rounded-2xl overflow-hidden flex items-center justify-center border border-zinc-800">
+            {images.length > 0 ?
+              <Image
+                src={images[activeIndex]}
+                alt={`${selectedCar.brand} ${selectedCar.carModel}`}
+                fill
+                priority
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
+            : <div className="text-zinc-800 font-black text-6xl uppercase italic opacity-50">
+                {selectedCar.brand}
+              </div>
+            }
           </div>
+
+          {images.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {images.map((image, index) => (
+                <button
+                  key={`${image}-${index}`}
+                  type="button"
+                  onClick={() => setActiveImage(index)}
+                  className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border-2 transition-opacity ${
+                    index === activeIndex ?
+                      "border-zinc-100"
+                    : "border-transparent opacity-60 hover:opacity-100"
+                  }`}>
+                  <Image
+                    src={image}
+                    alt={`${selectedCar.brand} ${selectedCar.carModel} image ${index + 1}`}
+                    fill
+                    className="object-cover"
+                    sizes="96px"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right: Details */}

@@ -1,7 +1,6 @@
 "use client";
 import { Container } from "@/components/ui";
 import { Header } from "@/components/ui";
-import { useRouter } from "next/navigation";
 
 export default function Home() {
   // Placeholder

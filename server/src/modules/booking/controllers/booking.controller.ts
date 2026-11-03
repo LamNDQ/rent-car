@@ -21,12 +21,14 @@ import {
   PreviewPriceDto,
   PreviewPriceResponseDto,
 } from '../models/dto';
-import { BookingGuard } from '../guard';
+import { JwtAuthGuard } from '../../../auth/jwt/jwt-auth.guard';
+import { RolesGuard } from '../../../auth/roles/roles.guard';
+import { Roles } from '../../../auth/roles/roles.decorator';
 import { ResponseInterceptor } from '@core/interceptors';
 
 @ApiTags('Bookings')
 @Controller('bookings')
-@UseGuards(BookingGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(ResponseInterceptor)
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
@@ -34,10 +36,10 @@ export class BookingController {
   // ── Admin ─────────────────────────────────────────────────────────────────
 
   @Get()
+  @Roles('admin')
   @ApiOperation({
     summary: 'Admin: list all bookings across all users',
-    description:
-      'Pass x-user-role: admin header. Returns every booking, newest first.',
+    description: 'Requires admin role. Returns every booking, newest first.',
   })
   @ApiResponse({ status: 200, type: [BookingResponseDto] })
   getAllBookings() {
@@ -103,14 +105,19 @@ export class BookingController {
     @Param('id') id: string,
     @Body() dto: UpdateBookingDto,
   ) {
-    return this.bookingService.updateBooking(id, req.user.id, dto);
+    return this.bookingService.updateBooking(
+      id,
+      req.user.id,
+      dto,
+      req.user.role,
+    );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Delete a booking (anyone)' })
+  @ApiOperation({ summary: 'Delete a booking' })
   @ApiResponse({ status: 200, description: 'Booking deleted successfully' })
-  deleteBooking(@Param('id') id: string) {
-    return this.bookingService.deleteBooking(id);
+  deleteBooking(@Req() req: any, @Param('id') id: string) {
+    return this.bookingService.deleteBooking(id, req.user.id, req.user.role);
   }
 }

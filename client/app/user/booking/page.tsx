@@ -50,15 +50,15 @@ function UserBookingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isAuthLoading } = useAuth();
-  const { bookings, loading, error, fetchBookings, createBooking, cancelBooking, previewPrice } = useBookings();
+  const { bookings, loading, error, createBooking, cancelBooking, previewPrice } = useBookings();
 
-  const [formData, setFormData] = useState({
-    carId: "",
-    startDate: "",
-    endDate: "",
+  const [formData, setFormData] = useState(() => ({
+    carId: searchParams.get("carId") || "",
+    startDate: getDateString(0),
+    endDate: getDateString(1),
     voucherCode: "",
-  });
-  const [todayStr, setTodayStr] = useState("");
+  }));
+  const todayStr = getDateString(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -69,22 +69,6 @@ function UserBookingContent() {
   useEffect(() => {
     if (!isAuthLoading && !user) router.push("/login");
   }, [user, isAuthLoading, router]);
-
-  useEffect(() => {
-    if (user) fetchBookings();
-  }, [fetchBookings, user]);
-
-  useEffect(() => {
-    const today = getDateString(0);
-    setTodayStr(today);
-    const carIdFromUrl = searchParams.get("carId") || "";
-    setFormData((prev) => ({
-      ...prev,
-      carId: carIdFromUrl,
-      startDate: today,
-      endDate: getDateString(1),
-    }));
-  }, [searchParams]);
 
   const [debouncedForm, setDebouncedForm] = useState(formData);
   useEffect(() => {
@@ -118,7 +102,10 @@ function UserBookingContent() {
   }, [debouncedForm, previewPrice]);
 
   useEffect(() => {
-    handlePreview();
+    const timer = setTimeout(() => {
+      void handlePreview();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [handlePreview]);
 
   if (isAuthLoading || !user) return null;

@@ -1,115 +1,192 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
 import { userApi } from "@app/lib/api";
 import { StoredUser } from "@app/types";
 
+const STORAGE_KEY = "app_user";
+
+let cachedUser: StoredUser | null = null;
+let hasLoaded = false;
+const listeners = new Set<() => void>();
+
+function parseStoredUser(raw: string | null): StoredUser | null {
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as
+      | ({ data?: StoredUser } & Partial<StoredUser>)
+      | null;
+
+    if (parsed?.data?.username) {
+      return parsed.data;
+    }
+    if (parsed?.username) {
+      return parsed as StoredUser;
+    }
+  } catch (e) {
+    console.error("Failed to parse stored user", e);
+  }
+
+  return null;
+}
+
+function loadUser(): StoredUser | null {
+  if (typeof window === "undefined") return null;
+
+  if (!hasLoaded) {
+    cachedUser = parseStoredUser(window.localStorage.getItem(STORAGE_KEY));
+    hasLoaded = true;
+  }
+
+  return cachedUser;
+}
+
+function emitChange() {
+  listeners.forEach((listener) => listener());
+}
+
+export function setStoredUser(user: StoredUser | null) {
+  cachedUser = user;
+  hasLoaded = true;
+
+  if (typeof window !== "undefined") {
+    if (user) {
+      const profile: Record<string, unknown> = { ...user };
+      delete profile.token;
+      delete profile.refreshToken;
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    } else {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
+  }
+
+  emitChange();
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+
+  if (typeof window === "undefined") {
+    return () => listeners.delete(listener);
+  }
+
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY) {
+      hasLoaded = false;
+      cachedUser = null;
+      emitChange();
+    }
+  };
+
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+function getSnapshot(): StoredUser | null {
+  return loadUser();
+}
+
+function getServerSnapshot(): StoredUser | null {
+  return null;
+}
+
+const subscribeHydration = () => () => {};
+
+function getHydratedSnapshot() {
+  return true;
+}
+
+function getServerHydratedSnapshot() {
+  return false;
+}
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  const e = err as {
+    response?: { data?: { message?: string } };
+    message?: string;
+  };
+  return e?.response?.data?.message || e?.message || fallback;
+}
+
 export const useAuth = () => {
-  const [user, setUser] = useState<StoredUser | null>(null);
+  const user = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
+  const isHydrated = useSyncExternalStore(
+    subscribeHydration,
+    getHydratedSnapshot,
+    getServerHydratedSnapshot,
+  );
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const checkAuth = useCallback(() => {
-    if (typeof window === "undefined") {
-      setIsAuthLoading(false);
-      return null;
-    }
-    
-    setIsAuthLoading(true);
-    const stored = window.localStorage.getItem("app_user");
-    if (stored) {
+  const checkAuth = useCallback((): StoredUser | null => loadUser(), []);
+
+  const login = useCallback(
+    async (
+      username: string,
+      password: string,
+    ): Promise<StoredUser | null> => {
+      setIsLoading(true);
+      setError(null);
       try {
-        const parsed = JSON.parse(stored);
-        let currentUser: StoredUser | null = null;
-        
-        if (parsed && parsed.data && parsed.data.username) {
-          currentUser = parsed.data;
-        } else if (parsed && parsed.username) {
-          currentUser = parsed as StoredUser;
+        const loggedInUser = await userApi.login(username, password);
+
+        if (!loggedInUser?.username) {
+          throw new Error("Login failed: Unexpected response format.");
         }
 
-        if (currentUser) {
-          setUser(currentUser);
-          setIsAuthLoading(false);
-          return currentUser;
-        } else {
-          window.localStorage.removeItem("app_user");
-          setUser(null);
-        }
-      } catch (e) {
-        console.error("Failed to parse stored user", e);
-        window.localStorage.removeItem("app_user");
-        setUser(null);
+        setStoredUser(loggedInUser);
+        return loggedInUser;
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, "Login failed. Please try again."));
+        return null;
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      setUser(null);
-    }
-    setIsAuthLoading(false);
-    return null;
-  }, []);
+    },
+    [],
+  );
 
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
-
-  const login = async (username: string, password: string): Promise<StoredUser | null> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const apiResponse: any = await userApi.login(username, password);
-
-      let loggedInUser: StoredUser | null = null;
-      if (apiResponse && apiResponse.data && apiResponse.data.username) {
-        loggedInUser = apiResponse.data;
-      } else if (apiResponse && apiResponse.username) {
-        loggedInUser = apiResponse as StoredUser;
+  const register = useCallback(
+    async (userData: {
+      username: string;
+      email: string;
+      password?: string;
+    }): Promise<boolean> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        await userApi.register(userData);
+        return true;
+      } catch (err: unknown) {
+        setError(
+          getErrorMessage(err, "Registration failed. Please try again."),
+        );
+        return false;
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [],
+  );
 
-      if (loggedInUser) {
-        // We don't store tokens in localStorage anymore, only the user profile
-        const { token, refreshToken, ...userProfile } = loggedInUser;
-        window.localStorage.setItem("app_user", JSON.stringify(userProfile));
-        setUser(userProfile);
-        return userProfile;
-      } else {
-        throw new Error("Login failed: Unexpected response format.");
-      }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || "Login failed. Please try again.";
-      setError(errorMessage);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const register = async (userData: { username: string; email: string; password?: string }): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      await userApi.register(userData);
-      return true;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || "Registration failed. Please try again.";
-      setError(errorMessage);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await userApi.logout();
     } catch (err) {
       console.error("Error during logout", err);
     } finally {
-      window.localStorage.removeItem("app_user");
-      setUser(null);
+      setStoredUser(null);
     }
-  };
+  }, []);
 
-  const refreshAccessToken = async (): Promise<string | null> => {
+  const refreshAccessToken = useCallback(async (): Promise<string | null> => {
     try {
       const response = await userApi.refresh();
       return response.token;
@@ -118,12 +195,12 @@ export const useAuth = () => {
       await logout();
       return null;
     }
-  };
+  }, [logout]);
 
   return {
     user,
     isLoading,
-    isAuthLoading,
+    isAuthLoading: !isHydrated,
     error,
     login,
     register,

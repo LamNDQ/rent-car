@@ -5,28 +5,20 @@ import { useRouter } from "next/navigation";
 import { userApi } from "@app/lib/api/userApi";
 import { Button } from "@app/components/ui/Button";
 import { Input } from "@app/components/ui/Input";
-import { StoredUser } from "@app/types";
+import { useAuth, setStoredUser } from "@app/hooks";
 
 export default function SsoSetupPage() {
   const router = useRouter();
+  const { user, isAuthLoading } = useAuth();
   const [username, setUsername] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [user, setUser] = useState<StoredUser | null>(null);
 
   useEffect(() => {
-    const storedUser = window.localStorage.getItem("app_user");
-    if (storedUser) {
-      try {
-        const { data } = JSON.parse(storedUser);
-        setUser(data);
-      } catch (e) {
-        router.push("/login");
-      }
-    } else {
+    if (!isAuthLoading && !user) {
       router.push("/login");
     }
-  }, [router]);
+  }, [user, isAuthLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,20 +32,19 @@ export default function SsoSetupPage() {
         username,
         needsProfileSetup: false,
       });
-      
-      // Update local storage
-      const updatedUser = { ...user, username, needsProfileSetup: false };
-      window.localStorage.setItem("app_user", JSON.stringify({ data: updatedUser }));
-      
+
+      setStoredUser({ ...user, username, needsProfileSetup: false });
       router.push("/");
-    } catch (err: any) {
-      setError(err.message || "Failed to update profile");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update profile",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!user) {
+  if (isAuthLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <p>Loading...</p>
@@ -89,11 +80,7 @@ export default function SsoSetupPage() {
             </div>
           ) : null}
 
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="w-full"
-          >
+          <Button type="submit" disabled={isLoading} className="w-full">
             {isLoading ? "Saving..." : "Complete Setup"}
           </Button>
         </form>

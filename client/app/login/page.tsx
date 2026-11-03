@@ -3,7 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@app/hooks";
-import { StoredUser } from "@app/types";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -73,29 +74,15 @@ export default function LoginPage() {
            </button>
          </form>
 
-          <div className="mt-6 grid grid-cols-1 gap-4">
-            <a
-              href="http://localhost:3000/sso/google"
-              className="flex items-center justify-center rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-900 transition hover:bg-zinc-100"
-            >
-              Login with Google
-            </a>
-          </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-4">
+        <div className="mt-6 grid grid-cols-1 gap-4">
           <a
-            href="http://localhost:3000/sso/google"
+            href={`${API_URL}/sso/google`}
             className="flex items-center justify-center rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-900 transition hover:bg-zinc-100">
             Login with Google
           </a>
-          <a
-            href="http://localhost:3000/sso/microsoft"
-            className="flex items-center justify-center rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-900 transition hover:bg-zinc-100">
-            Login with Microsoft
-          </a>
         </div>
         <p className="mt-6 text-center text-sm text-foreground/80">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <a
             href="/register"
             className="font-medium text-foreground hover:text-foreground/90">

@@ -25,12 +25,6 @@ export default function AdminBookingPage() {
     }
   }, [user, isAuthLoading, router]);
 
-  useEffect(() => {
-    if (user && user.role === "admin") {
-      fetchBookings();
-    }
-  }, [fetchBookings, user]);
-
   if (isAuthLoading || !user || user.role !== "admin") return null;
 
   const handleOpenAddModal = () => {

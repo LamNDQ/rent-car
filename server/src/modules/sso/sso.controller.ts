@@ -17,16 +17,16 @@ export class SsoController {
 
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  async googleAuth() {}
+  googleAuth() {}
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleAuthCallback(@Req() req: any, @Res() res: Response) {
     const user = await this.ssoService.findOrCreateUser(req.user, 'google');
-    return this.handleSsoCallback(user, res);
+    this.handleSsoCallback(user, res);
   }
 
-  private async handleSsoCallback(user: any, res: Response) {
+  private handleSsoCallback(user: any, res: Response) {
     const payload = {
       username: user.username,
       email: user.email,
@@ -35,10 +35,9 @@ export class SsoController {
     };
 
     const token = this.jwtService.sign(payload);
-    this.logger.log(`Generated SSO Token: ${token}`);
 
     const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4000';
+      this.configService.get<string>('CLIENT_URL') || 'http://localhost:4000';
     res.redirect(`${frontendUrl}/login/sso-success?token=${token}`);
   }
 }

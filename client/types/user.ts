@@ -8,6 +8,4 @@ export interface StoredUser {
   refreshToken?: string;
 }
 
-export interface UserLoginResponse extends StoredUser {
-  // Add other fields if returned by the API
-}
+export type UserLoginResponse = StoredUser;

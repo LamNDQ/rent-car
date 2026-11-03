@@ -24,7 +24,7 @@ export function Button<T extends React.ElementType = "button">({
   const Component = (as || "button") as React.ElementType;
   return (
     <Component
-      {...(props as any)}
+      {...(props as Record<string, unknown>)}
       disabled={disabled || isLoading}
       className={twMerge(
         "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 disabled:pointer-events-none disabled:opacity-50",

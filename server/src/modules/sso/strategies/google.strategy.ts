@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(configService: ConfigService) {
     const appUrl =
-      configService.get<string>('APP_URL') || 'http://localhost:3000';
+      configService.get<string>('APP_BASE_URL') || 'http://localhost:3000';
     super({
       clientID:
         configService.get<string>('GOOGLE_CLIENT_ID') || 'dummy_google_id',
@@ -21,7 +21,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     });
   }
 
-  async validate(
+  validate(
     accessToken: string,
     refreshToken: string,
     profile: any,

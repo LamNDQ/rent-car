@@ -22,10 +22,10 @@ export function UserRoleModal({ isOpen, user, onClose, onSuccess }: UserRoleModa
     setIsLoading(true);
     setError(null);
     try {
-      await userApi.update(user.id, { role: newRole as any });
+      await userApi.update(user.id, { role: newRole });
       onSuccess();
-    } catch (err: any) {
-      setError(err.message || "Failed to update role");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update role");
     } finally {
       setIsLoading(false);
     }

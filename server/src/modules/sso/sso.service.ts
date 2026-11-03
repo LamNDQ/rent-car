@@ -10,6 +10,7 @@ export class SsoService {
     profile: any,
     provider: 'google',
   ): Promise<UserDocument> {
+    void provider;
     const email = profile.emails?.[0]?.value;
     if (!email) {
       throw new Error('Email not found in provider profile');

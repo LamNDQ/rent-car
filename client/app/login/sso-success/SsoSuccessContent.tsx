@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { userApi } from "@app/lib/api/userApi";
+import { setStoredUser } from "@app/hooks";
 
 export default function SsoSuccessContent() {
   const router = useRouter();
@@ -13,7 +14,7 @@ export default function SsoSuccessContent() {
     if (token) {
       userApi.getMe(token)
         .then((userData) => {
-          window.localStorage.setItem("app_user", JSON.stringify({ data: userData }));
+          setStoredUser(userData);
           if (userData.needsProfileSetup) {
             router.push("/login/sso-setup");
           } else {

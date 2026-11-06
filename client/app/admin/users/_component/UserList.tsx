@@ -1,6 +1,8 @@
 "use client";
 
+import { UserRound } from "lucide-react";
 import { StoredUser } from "@app/types";
+import { Badge, Button } from "@app/components/ui";
 
 export interface UserListProps {
   users: StoredUser[];
@@ -8,50 +10,101 @@ export interface UserListProps {
   onEditRole: (user: StoredUser) => void;
 }
 
+function roleVariant(role: string) {
+  if (role === "admin") return "error";
+  if (role === "vip") return "warning";
+  return "info";
+}
+
 export function UserList({ users, isLoading, onEditRole }: UserListProps) {
   if (isLoading) {
-    return <div className="p-4 text-center">Loading users...</div>;
+    return (
+      <div className="space-y-3 p-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-14 animate-pulse rounded-xl bg-slate-100"
+          />
+        ))}
+      </div>
+    );
   }
 
   if (users.length === 0) {
-    return <div className="p-4 text-center">No users found.</div>;
+    return (
+      <div className="px-6 py-16 text-center">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200">
+          <UserRound className="h-6 w-6" />
+        </span>
+        <p className="mt-4 text-sm font-semibold text-slate-900">
+          No users found
+        </p>
+        <p className="mt-1 text-sm text-slate-500">
+          Try a different search term.
+        </p>
+      </div>
+    );
   }
 
   return (
-    <div className="overflow-x-auto border rounded-lg">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 uppercase text-xs">
-          <tr>
-            <th className="px-4 py-3">Username</th>
-            <th className="px-4 py-3">Email</th>
-            <th className="px-4 py-3">Role</th>
-            <th className="px-4 py-3 text-right">Actions</th>
+    <>
+      <p className="border-b border-slate-100 px-5 py-2 text-[11px] text-slate-400 md:hidden">
+        Swipe horizontally to see roles and actions.
+      </p>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-left text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50/70">
+            {["User", "Role", "Actions"].map((heading) => (
+              <th
+                key={heading}
+                className="whitespace-nowrap px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                {heading}
+              </th>
+            ))}
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody className="divide-y divide-slate-100">
           {users.map((user) => (
-            <tr key={user.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
-              <td className="px-4 py-3 font-semibold text-zinc-900">{user.username}</td>
-              <td className="px-4 py-3 text-zinc-500">{user.email}</td>
-              <td className="px-4 py-3">
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  user.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-                }`}>
-                  {user.role}
-                </span>
+            <tr
+              key={user.id}
+              className="transition-colors hover:bg-slate-50/60">
+              <td className="px-5 py-3.5">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white">
+                    {user.username?.charAt(0).toUpperCase() ?? (
+                      <UserRound className="h-4 w-4" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">
+                      {user.username}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
               </td>
-              <td className="px-4 py-3 text-right">
-                <button
-                  onClick={() => onEditRole(user)}
-                  className="text-blue-600 hover:underline"
-                >
-                  Edit Role
-                </button>
+
+              <td className="whitespace-nowrap px-5 py-3.5">
+                <Badge variant={roleVariant(user.role)}>{user.role}</Badge>
+              </td>
+
+              <td className="whitespace-nowrap px-5 py-3.5 text-right">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEditRole(user)}>
+                  Edit role
+                </Button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 }

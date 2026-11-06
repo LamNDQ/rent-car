@@ -3,9 +3,23 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  CalendarDays,
+  CarFront,
+  Check,
+  Palette,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { useCars } from "@/hooks/useCar";
-import { Container, Button, Badge } from "@/components/ui";
-import { ChevronLeft, Users, Calendar, Palette, CarFront } from "lucide-react";
+import { Badge, Button } from "@/components/ui";
+
+function formatPrice(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
 
 export default function CarDetailPage() {
   const params = useParams();
@@ -21,183 +35,193 @@ export default function CarDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-100">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-zinc-100"></div>
+      <div className="grid animate-pulse gap-10 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="aspect-[4/3] rounded-3xl bg-slate-200" />
+        <div className="space-y-4">
+          <div className="h-6 w-32 rounded-full bg-slate-200" />
+          <div className="h-12 w-3/4 rounded-xl bg-slate-200" />
+          <div className="h-24 rounded-xl bg-slate-200" />
+          <div className="h-40 rounded-2xl bg-slate-200" />
+        </div>
       </div>
     );
   }
 
   if (error || !selectedCar) {
     return (
-      <Container className="py-12">
-        <div className="text-center">
-          <p className="text-red-500 text-lg mb-4">
-            {error || "Car not found"}
-          </p>
-          <Button onClick={() => router.back()}>Go Back</Button>
-        </div>
-      </Container>
+      <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center">
+        <CarFront className="mx-auto h-10 w-10 text-slate-300" />
+        <p className="mt-4 text-lg font-bold text-slate-900">
+          {error || "Car not found"}
+        </p>
+        <p className="mt-1 text-sm text-slate-500">
+          The car may have been removed from the fleet.
+        </p>
+        <Button className="mt-6" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
+          Go back
+        </Button>
+      </div>
     );
   }
 
   const images = selectedCar.imgUrl ?? [];
-  const activeIndex = images.length > 0 ? Math.min(activeImage, images.length - 1) : 0;
+  const activeIndex =
+    images.length > 0 ? Math.min(activeImage, images.length - 1) : 0;
+
+  const specs = [
+    { icon: Users, label: "Seats", value: `${selectedCar.seat} adults` },
+    { icon: Palette, label: "Colour", value: selectedCar.color },
+    { icon: CarFront, label: "Model", value: selectedCar.carModel },
+    { icon: CalendarDays, label: "Year", value: selectedCar.year },
+  ];
 
   return (
-    <Container className="py-8">
-      <Button
-        variant="outline"
-        className="mb-6 text-zinc-400 hover:text-white -ml-2 border-none bg-transparent hover:bg-zinc-800/50"
-        onClick={() => router.back()}>
-        <ChevronLeft className="w-4 h-4 mr-1" />
-        Back to Gallery
+    <div className="space-y-8">
+      <Button variant="ghost" size="sm" onClick={() => router.back()}>
+        <ArrowLeft className="h-4 w-4" />
+        Back to the fleet
       </Button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* Left: Image gallery */}
-        <div className="flex flex-col gap-3">
-          <div className="relative aspect-video bg-zinc-900 rounded-2xl overflow-hidden flex items-center justify-center border border-zinc-800">
-            {images.length > 0 ?
+      <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-12">
+        <section>
+          <div className="relative aspect-[4/3] overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
+            {images.length > 0 ? (
               <Image
                 src={images[activeIndex]}
                 alt={`${selectedCar.brand} ${selectedCar.carModel}`}
                 fill
                 priority
                 className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 50vw"
+                sizes="(max-width: 1024px) 100vw, 60vw"
               />
-            : <div className="text-zinc-800 font-black text-6xl uppercase italic opacity-50">
-                {selectedCar.brand}
+            ) : (
+              <div className="flex h-full items-center justify-center text-slate-300">
+                <CarFront className="h-20 w-20" />
               </div>
-            }
+            )}
+
+            <div className="absolute left-4 top-4">
+              <Badge variant={selectedCar.isAvailable ? "success" : "default"}>
+                {selectedCar.isAvailable ? "Available" : "Unavailable"}
+              </Badge>
+            </div>
           </div>
 
           {images.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
               {images.map((image, index) => (
                 <button
                   key={`${image}-${index}`}
                   type="button"
                   onClick={() => setActiveImage(index)}
-                  className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border-2 transition-opacity ${
-                    index === activeIndex ?
-                      "border-zinc-100"
-                    : "border-transparent opacity-60 hover:opacity-100"
+                  className={`relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                    index === activeIndex
+                      ? "border-slate-900 opacity-100"
+                      : "border-transparent opacity-60 hover:opacity-100"
                   }`}>
                   <Image
                     src={image}
                     alt={`${selectedCar.brand} ${selectedCar.carModel} image ${index + 1}`}
                     fill
                     className="object-cover"
-                    sizes="96px"
+                    sizes="112px"
                   />
                 </button>
               ))}
             </div>
           )}
-        </div>
 
-        {/* Right: Details */}
-        <div className="flex flex-col gap-8">
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <Badge variant={selectedCar.isAvailable ? "success" : "default"}>
-                {selectedCar.isAvailable ? "Available" : "Unavailable"}
-              </Badge>
-              <span className="text-zinc-500 text-sm">
-                {selectedCar.year} Model
-              </span>
-            </div>
-            <h1 className="text-4xl font-bold text-white mb-4">
+        </section>
+
+        <aside className="lg:sticky lg:top-28 lg:row-span-2 lg:h-fit lg:self-start">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
+              <Sparkles className="h-3.5 w-3.5" />
+              {selectedCar.year} model
+            </p>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               {selectedCar.brand} {selectedCar.carModel}
             </h1>
-            <p className="text-zinc-400 text-lg leading-relaxed">
-              Experience luxury and performance with the all-new{" "}
-              {selectedCar.brand} {selectedCar.carModel}. Designed for those who
-              demand excellence on every journey, offering unparalleled comfort
-              and state-of-the-art technology.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-100">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">
-                  Seats
-                </p>
-                <p className="font-semibold text-zinc-100">
-                  {selectedCar.seat} Adults
-                </p>
-              </div>
-            </div>
-            <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-100">
-                <Palette className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">
-                  Color
-                </p>
-                <p className="font-semibold text-zinc-100 capitalize">
-                  {selectedCar.color}
-                </p>
-              </div>
-            </div>
-            <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-100">
-                <CarFront className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">
-                  Model
-                </p>
-                <p className="font-semibold text-zinc-100">
-                  {selectedCar.carModel}
-                </p>
-              </div>
-            </div>
-            <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-100">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">
-                  Year
-                </p>
-                <p className="font-semibold text-zinc-100">
-                  {selectedCar.year}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-auto pt-8 border-t border-zinc-800">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <p className="text-xs text-zinc-500 uppercase font-bold tracking-widest mb-1">
-                  Daily Rate
-                </p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-white">
-                    ${selectedCar.basePrice}
-                  </span>
-                  <span className="text-zinc-500 font-medium">/ day</span>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              {specs.map((spec) => (
+                <div
+                  key={spec.label}
+                  className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                  <spec.icon className="h-5 w-5 text-slate-400" />
+                  <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    {spec.label}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold capitalize text-slate-900">
+                    {spec.value}
+                  </p>
                 </div>
-              </div>
+              ))}
             </div>
 
-            <Button
-              className="w-full text-lg py-6 rounded-xl transition-all active:scale-[0.98]"
-              disabled={!selectedCar.isAvailable}
-              onClick={() => router.push(`/user/booking?carId=${selectedCar._id}`)}>
-              Book Now
-            </Button>
+            <div className="mt-6 border-t border-slate-100 pt-6">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Daily rate
+              </p>
+              <p className="mt-1 text-4xl font-bold tracking-tight text-slate-900">
+                ${formatPrice(selectedCar.basePrice)}
+                <span className="ml-1 text-sm font-medium text-slate-400">
+                  / day
+                </span>
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                Final price is calculated from your rental dates and discounts.
+              </p>
+
+              <Button
+                variant="accent"
+                size="lg"
+                className="mt-6 w-full"
+                disabled={!selectedCar.isAvailable}
+                onClick={() =>
+                  router.push(`/user/booking?carId=${selectedCar._id}`)
+                }>
+                {selectedCar.isAvailable ? "Book this car" : "Currently unavailable"}
+              </Button>
+
+              <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-slate-400">
+                <span>Instant confirmation</span>
+                <span className="h-1 w-1 rounded-full bg-slate-300" />
+                <span>Flexible dates</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 lg:col-start-1">
+          <h2 className="text-lg font-bold tracking-tight text-slate-900">
+            About this car
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500">
+            The {selectedCar.year} {selectedCar.brand} {selectedCar.carModel} in{" "}
+            {selectedCar.color} is ready for your next trip. Availability is
+            checked against your exact dates, so the car you book is the car you
+            get.
+          </p>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {[
+              "Live date-based availability",
+              "Instant booking confirmation",
+              "VIP discounts applied automatically",
+              "Voucher codes stack on top",
+            ].map((item) => (
+              <p
+                key={item}
+                className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-xs font-medium text-slate-600">
+                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                {item}
+              </p>
+            ))}
           </div>
         </div>
       </div>
-    </Container>
+    </div>
   );
 }

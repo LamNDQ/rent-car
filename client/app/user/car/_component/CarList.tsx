@@ -1,105 +1,68 @@
 "use client";
 
-import Link from "next/link";
-import Image from "next/image";
-import { Card, Badge } from "@/components/ui";
+import { AlertCircle, CalendarSearch, CarFront } from "lucide-react";
+import { CarCard } from "@/components/cars/CarCard";
 import type { Car } from "@/types";
 
 interface CarListProps {
   cars: Car[];
   isLoading: boolean;
   error: string | null;
+  hasDates: boolean;
 }
 
-export function CarList({ cars, isLoading, error }: CarListProps) {
+export function CarList({ cars, isLoading, error, hasDates }: CarListProps) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-100">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-zinc-100"></div>
+      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-[420px] animate-pulse rounded-3xl border border-slate-200 bg-white"
+          />
+        ))}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-100">
-        <p className="text-red-500">{error}</p>
+      <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center">
+        <AlertCircle className="mx-auto h-8 w-8 text-red-500" />
+        <p className="mt-3 text-sm font-semibold text-red-700">
+          We couldn&apos;t load the fleet
+        </p>
+        <p className="mt-1 text-sm text-red-600/80">{error}</p>
       </div>
     );
   }
 
   if (cars.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-100">
-        <p className="text-zinc-400">
-          Please select dates to see available cars.
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center sm:p-14">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200">
+          {hasDates ? (
+            <CarFront className="h-7 w-7" />
+          ) : (
+            <CalendarSearch className="h-7 w-7" />
+          )}
+        </span>
+        <p className="mt-5 text-lg font-bold tracking-tight text-slate-900">
+          {hasDates ? "No cars available for these dates" : "Choose your dates"}
+        </p>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">
+          {hasDates
+            ? "Every car in the fleet is booked for this window. Try shifting your pick-up or return date."
+            : "Select both a pick-up and a return date above to see live availability."}
         </p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {cars.map((car) => (
-        <Link key={car._id} href={`/user/car/${car._id}`} className="block">
-          <Card className="group overflow-hidden flex flex-col p-0 border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/60 hover:border-zinc-700 transition-all duration-300 h-full">
-            <div className="relative aspect-video overflow-hidden bg-zinc-950/50">
-              {car.imgUrl?.[0] ?
-                <Image
-                  src={car.imgUrl[0]}
-                  alt={`${car.brand} ${car.carModel}`}
-                  fill
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                />
-              : <div className="flex items-center justify-center h-full text-zinc-700 font-black text-3xl uppercase italic opacity-20 group-hover:opacity-40 transition-opacity">
-                  {car.brand}
-                </div>
-              }
-              <div className="absolute top-3 right-3">
-                <Badge
-                  className="text-[10px] px-2 py-0.5"
-                  variant={car.isAvailable ? "success" : "default"}>
-                  {car.isAvailable ? "Available" : "Unavailable"}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="flex flex-1 flex-col p-4 gap-3">
-              <div className="flex flex-col gap-1">
-                <h3 className="font-semibold text-zinc-100 line-clamp-1 leading-tight text-base">
-                  {car.brand} {car.carModel}
-                </h3>
-                <p className="text-xs text-zinc-500 font-medium">
-                  {car.year} Model
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <span className="text-[11px] font-medium text-zinc-400 bg-zinc-800/50 px-2 py-1 rounded">
-                  {car.seat} Seats
-                </span>
-                <span className="text-[11px] font-medium text-zinc-400 bg-zinc-800/50 px-2 py-1 rounded uppercase">
-                  {car.color}
-                </span>
-              </div>
-
-              <div className="mt-auto pt-3 border-t border-zinc-800/50">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    Day Rate
-                  </span>
-                  <div className="flex items-baseline gap-0.5">
-                    <span className="text-sm font-bold text-zinc-100">$</span>
-                    <span className="text-xl font-bold text-zinc-100">
-                      {car.basePrice}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </Link>
+    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+      {cars.map((car, index) => (
+        <CarCard key={car._id} car={car} priority={index < 3} />
       ))}
     </div>
   );

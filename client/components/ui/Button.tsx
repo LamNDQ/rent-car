@@ -3,17 +3,23 @@ import { twMerge } from "tailwind-merge";
 
 export type ButtonVariant =
   | "primary"
+  | "accent"
   | "secondary"
   | "outline"
+  | "ghost"
   | "ghost-destructive";
+
+export type ButtonSize = "sm" | "md" | "lg";
 
 export interface ButtonBaseProps {
   variant?: ButtonVariant;
+  size?: ButtonSize;
   isLoading?: boolean;
 }
 
 export function Button<T extends React.ElementType = "button">({
   variant = "primary",
+  size = "md",
   isLoading = false,
   className,
   children,
@@ -27,31 +33,45 @@ export function Button<T extends React.ElementType = "button">({
       {...(props as Record<string, unknown>)}
       disabled={disabled || isLoading}
       className={twMerge(
-        "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:translate-y-px",
+        getSizeStyles(size),
         getVariantStyles(variant),
         className,
       )}>
-      {children}
-      {/* Simple inline loading spinner */}
       {isLoading && (
-        <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
       )}
+      {children}
     </Component>
   );
+}
+
+export function getSizeStyles(size: ButtonSize): string {
+  switch (size) {
+    case "sm":
+      return "h-9 px-3.5 text-xs";
+    case "lg":
+      return "h-12 px-6 text-base";
+    default:
+      return "h-11 px-5 text-sm";
+  }
 }
 
 export function getVariantStyles(variant: ButtonVariant): string {
   switch (variant) {
     case "primary":
-      return "bg-zinc-100 text-zinc-900 hover:bg-zinc-200 shadow-sm";
+      return "bg-slate-900 text-white shadow-sm shadow-slate-900/10 hover:bg-slate-800";
+    case "accent":
+      return "bg-amber-600 text-white shadow-sm shadow-amber-600/20 hover:bg-amber-700";
     case "secondary":
-      return "bg-zinc-800 text-zinc-100 hover:bg-zinc-700 border border-zinc-700";
+      return "border border-slate-200 bg-slate-100 text-slate-900 hover:bg-slate-200";
     case "outline":
-      return "border border-zinc-700 bg-transparent hover:bg-zinc-800 text-zinc-100";
+      return "border border-slate-300 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-50";
+    case "ghost":
+      return "text-slate-600 hover:bg-slate-100 hover:text-slate-900";
     case "ghost-destructive":
-      return "bg-transparent text-red-500 hover:bg-red-950/30 hover:text-red-400";
+      return "text-red-600 hover:bg-red-50 hover:text-red-700";
     default:
       return "";
   }
 }
-

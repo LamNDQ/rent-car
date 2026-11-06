@@ -1,7 +1,10 @@
 "use client";
+
+import { useState } from "react";
 import Image from "next/image";
+import { CarFront, Pencil, Trash2 } from "lucide-react";
 import type { Car } from "@/types";
-import { Button } from "@/components/ui/Button";
+import { Badge, Button, ConfirmDialog } from "@/components/ui";
 
 interface CarTableProps {
   cars: Car[];
@@ -9,88 +12,153 @@ interface CarTableProps {
   onEdit: (car: Car) => void;
 }
 
+function formatPrice(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 export function CarTable({ cars, onDelete, onEdit }: CarTableProps) {
+  const [deleteTarget, setDeleteTarget] = useState<Car | null>(null);
+
   if (cars.length === 0) {
-    return <p className="p-4 text-center text-zinc-500">No cars available.</p>;
+    return (
+      <div className="px-6 py-16 text-center">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200">
+          <CarFront className="h-6 w-6" />
+        </span>
+        <p className="mt-4 text-sm font-semibold text-slate-900">
+          No cars found
+        </p>
+        <p className="mt-1 text-sm text-slate-500">
+          Try a different search or add a new vehicle.
+        </p>
+      </div>
+    );
   }
 
+  const handleDelete = () => {
+    if (deleteTarget?._id) {
+      onDelete(deleteTarget._id);
+    }
+    setDeleteTarget(null);
+  };
+
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-zinc-200 shadow-sm">
-      <table className="w-full whitespace-nowrap">
-        <thead>
-          <tr className="text-left text-sm font-bold text-zinc-800">
-            <th className="py-3 px-4">Brand</th>
-            <th className="py-3 px-4">Model</th>
-            <th className="py-3 px-4">Year</th>
-            <th className="py-3 px-4">Color</th>
-            <th className="py-3 px-4">Seats</th>
-            <th className="py-3 px-4">Base Price</th>
-            <th className="py-3 px-4">Total Stock</th>
-            <th className="py-3 px-4">available Stock</th>
-            <th className="py-3 px-4">Available</th>
-            <th className="py-3 px-4">Image</th>
-            <th className="py-3 px-4">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100 text-sm text-zinc-800 rounded-2xl border-zinc-800">
-          {cars.map((car) => (
-            <tr key={car._id} className="hover:bg-zinc-50 transition-colors">
-              <td className="py-2 px-4">{car.brand}</td>
-              <td className="py-2 px-4">{car.carModel}</td>
-              <td className="py-2 px-4">{car.year}</td>
-              <td className="py-2 px-4">{car.color}</td>
-              <td className="py-2 px-4">{car.seat}</td>
-              <td className="py-2 px-4">{car.basePrice}</td>
-              <td className="py-2 px-4">{car.stock}</td>
-              <td className="py-2 px-4">{car.availableStock}</td>
-              <td className="py-2 px-4">
-                <span
-                  className={
-                    car.isAvailable ? "text-green-600" : "text-red-600"
-                  }>
-                  {car.isAvailable ? "Yes" : "No"}
-                </span>
-              </td>
-              <td className="py-2 px-4">
-                {car.imgUrl && car.imgUrl.length > 0 ?
-                  // Next.js Image with 'fill' requires a relative parent wrapper
-                  <div className="relative h-12 w-20 rounded overflow-hidden bg-zinc-100">
-                    <Image
-                      src={car.imgUrl[0]}
-                      alt={`${car.brand} ${car.carModel}`}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 80px"
-                    />
-                  </div>
-                : <span className="text-zinc-400 italic">No image</span>}
-              </td>
-              <td>
-                <div className="flex items-center gap-2 px-2 py-2">
-                  <Button className="text-blue-600" onClick={() => onEdit(car)}>
-                    Edit
-                  </Button>
-                  <Button
-                    className="text-red-600"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "Are you sure you want to delete this car?",
-                        )
-                      ) {
-                        if (car._id) {
-                          onDelete(car._id);
-                        }
-                      }
-                    }}>
-                    Delete
-                  </Button>
-                </div>
-              </td>
+    <>
+      <p className="border-b border-slate-100 px-5 py-2 text-[11px] text-slate-400 md:hidden">
+        Swipe horizontally to see pricing, stock and actions.
+      </p>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/70 text-left">
+              {["Car", "Details", "Price/day", "Stock", "Status", "Actions"].map(
+                (heading) => (
+                  <th
+                    key={heading}
+                    className="whitespace-nowrap px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    {heading}
+                  </th>
+                ),
+              )}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {cars.map((car) => (
+              <tr
+                key={car._id}
+                className="transition-colors hover:bg-slate-50/60">
+                <td className="px-5 py-3.5">
+                  <div className="flex items-center gap-3">
+                    {car.imgUrl && car.imgUrl.length > 0 ? (
+                      <div className="relative h-11 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                        <Image
+                          src={car.imgUrl[0]}
+                          alt={`${car.brand} ${car.carModel}`}
+                          fill
+                          className="object-cover"
+                          sizes="64px"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-11 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                        <CarFront className="h-5 w-5" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {car.brand} {car.carModel}
+                      </p>
+                      <p className="font-mono text-[10px] text-slate-400">
+                        #{car._id?.slice(-6)}
+                      </p>
+                    </div>
+                  </div>
+                </td>
+
+                <td className="whitespace-nowrap px-5 py-3.5 text-xs text-slate-500">
+                  <p>
+                    {car.year} · <span className="capitalize">{car.color}</span>
+                  </p>
+                  <p className="mt-0.5">{car.seat} seats</p>
+                </td>
+
+                <td className="whitespace-nowrap px-5 py-3.5 font-semibold text-slate-900">
+                  ${formatPrice(car.basePrice)}
+                </td>
+
+                <td className="whitespace-nowrap px-5 py-3.5 text-xs text-slate-600">
+                  <span className="font-semibold text-slate-900">
+                    {car.availableStock}
+                  </span>{" "}
+                  / {car.stock}
+                </td>
+
+                <td className="whitespace-nowrap px-5 py-3.5">
+                  <Badge variant={car.isAvailable ? "success" : "default"}>
+                    {car.isAvailable ? "Available" : "Unavailable"}
+                  </Badge>
+                </td>
+
+                <td className="whitespace-nowrap px-5 py-3.5">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onEdit(car)}
+                      aria-label={`Edit ${car.brand} ${car.carModel}`}>
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost-destructive"
+                      size="sm"
+                      onClick={() => setDeleteTarget(car)}
+                      aria-label={`Delete ${car.brand} ${car.carModel}`}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(deleteTarget)}
+        title="Delete this car?"
+        description={`This will permanently remove ${
+          deleteTarget ? `${deleteTarget.brand} ${deleteTarget.carModel}` : "this car"
+        } from the fleet.`}
+        confirmText="Delete car"
+        confirmVariant="ghost-destructive"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
+    </>
   );
 }

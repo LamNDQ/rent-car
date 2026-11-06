@@ -7,9 +7,5 @@ export default async function Home({
 }) {
   const { startDate = "", endDate = "" } = await searchParams;
 
-  return (
-    <div className="mt-8">
-      <CarSection startDate={startDate} endDate={endDate} />
-    </div>
-  );
+  return <CarSection startDate={startDate} endDate={endDate} />;
 }

@@ -3,13 +3,15 @@ import SsoSuccessContent from "./SsoSuccessContent";
 
 export default function SsoSuccessPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold">Loading...</h1>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <div className="flex items-center gap-3 text-sm text-slate-500">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
+            Loading...
+          </div>
         </div>
-      </div>
-    }>
+      }>
       <SsoSuccessContent />
     </Suspense>
   );

@@ -1,4 +1,5 @@
 "use client";
+
 import type { ReactNode } from "react";
 import { Button, type ButtonVariant } from "./Button";
 
@@ -30,15 +31,17 @@ export function ConfirmDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl w-full max-w-md p-6">
-        <h2 className="text-xl font-bold mb-2 text-zinc-100">{title}</h2>
-        <p className="text-zinc-400 mb-6">{description}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-900/10">
+        <h2 className="mb-2 text-xl font-bold text-slate-900">{title}</h2>
+        <p className="mb-6 text-sm leading-relaxed text-slate-500">
+          {description}
+        </p>
         <div className="flex justify-end gap-2">
           <Button
             type="button"
             onClick={onCancel}
-            variant="secondary"
+            variant="outline"
             disabled={isLoading}>
             {cancelText}
           </Button>

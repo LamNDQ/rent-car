@@ -1,9 +1,7 @@
 "use client";
 
-import { twMerge } from "tailwind-merge";
-import { Container } from "@/components/ui";
-import { Input } from "@/components/ui";
-import { Calendar } from "lucide-react";
+import { CalendarDays, Sparkles } from "lucide-react";
+import { Container, Input } from "@/components/ui";
 
 export interface PageBannerProps {
   title: string;
@@ -11,6 +9,12 @@ export interface PageBannerProps {
   endDate?: string;
   onStartDateChange?: (date: string) => void;
   onEndDateChange?: (date: string) => void;
+}
+
+function getDateString(offsetDays = 0): string {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return date.toISOString().split("T")[0];
 }
 
 export function PageBanner({
@@ -21,56 +25,59 @@ export function PageBanner({
   onEndDateChange,
 }: PageBannerProps) {
   return (
-    <div className="relative w-full bg-zinc-900 py-12 md:py-16">
-      <Container>
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          {/* Left Side: Title */}
-          <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl uppercase">
+    <section className="border-b border-slate-200 bg-white">
+      <Container className="py-10 lg:py-14">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-xl">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
+              <Sparkles className="h-3.5 w-3.5" />
+              The collection
+            </p>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 text-balance sm:text-4xl lg:text-5xl">
               {title}
             </h1>
+            <p className="mt-3 text-sm leading-relaxed text-slate-500 sm:text-base">
+              Choose your pick-up and return dates. We&apos;ll only show cars
+              that can actually fit your trip.
+            </p>
           </div>
 
-          {/* Right Side: Date Filters */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex items-center">
-              <div className="absolute left-3 z-10 text-zinc-400 pointer-events-none">
-                <Calendar className="h-4 w-4" />
+          <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute left-3.5 top-[2.75rem] h-4 w-4 text-slate-400" />
+                <Input
+                  id="fleet-start-date"
+                  label="Pick-up date"
+                  type="date"
+                  value={startDate}
+                  min={getDateString(0)}
+                  onChange={(event) => onStartDateChange?.(event.target.value)}
+                  className="bg-white pl-10"
+                />
               </div>
-              <Input
-                type="date"
-                value={startDate}
-                className={twMerge(
-                  "pl-10 w-full sm:w-50 bg-white/10 border-white/20 text-white placeholder:text-zinc-400 focus:ring-zinc-400",
-                  // Filter to invert the native browser date picker icon to white
-                  "[&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert",
-                )}
-                onChange={(e) => onStartDateChange?.(e.target.value)}
-                aria-label="Start Date"
-              />
+
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute left-3.5 top-[2.75rem] h-4 w-4 text-slate-400" />
+                <Input
+                  id="fleet-end-date"
+                  label="Return date"
+                  type="date"
+                  value={endDate}
+                  min={startDate || getDateString(0)}
+                  onChange={(event) => onEndDateChange?.(event.target.value)}
+                  className="bg-white pl-10"
+                />
+              </div>
             </div>
 
-            <span className="hidden sm:inline text-zinc-500">-</span>
-
-            <div className="relative flex items-center">
-              <div className="absolute left-3 z-10 text-zinc-400 pointer-events-none">
-                <Calendar className="h-4 w-4" />
-              </div>
-              <Input
-                type="date"
-                value={endDate}
-                className={twMerge(
-                  "pl-10 w-full sm:w-50 bg-white/10 border-white/20 text-white placeholder:text-zinc-400 focus:ring-zinc-400",
-                  // Filter to invert the native browser date picker icon to white
-                  "[&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert",
-                )}
-                onChange={(e) => onEndDateChange?.(e.target.value)}
-                aria-label="End Date"
-              />
-            </div>
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
+              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Availability updates automatically as you change the dates.
+            </p>
           </div>
         </div>
       </Container>
-    </div>
+    </section>
   );
 }

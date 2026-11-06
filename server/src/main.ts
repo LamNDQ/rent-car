@@ -8,6 +8,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { csrfProtection } from './core/middlewares/csrf.middleware';
 
 if (!globalThis.crypto?.getRandomValues) {
   Object.defineProperty(globalThis, 'crypto', {
@@ -38,9 +39,11 @@ async function bootstrap() {
       'http://localhost:4000',
     methods: 'GET, POST, PUT, PATCH, DELETE, HEAD',
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
   });
 
   app.use(cookieParser());
+  app.use(csrfProtection);
 
   // Enable global validation pipe
   app.useGlobalPipes(

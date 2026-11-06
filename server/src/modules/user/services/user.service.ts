@@ -34,8 +34,10 @@ export class UserService {
   }
 
   public async update(id: string, updateData: any): Promise<UserDocument> {
+    const passwordChanged = Boolean(updateData.password);
+
     // If password is being updated, hash it
-    if (updateData.password) {
+    if (passwordChanged) {
       updateData.password = await bcrypt.hash(
         updateData.password,
         this.SALT_ROUNDS,
@@ -46,7 +48,46 @@ export class UserService {
     if (!updatedUser) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
+
+    if (passwordChanged) {
+      await this.revokeAllRefreshSessions(id);
+    }
+
     return updatedUser;
+  }
+
+  public async addRefreshSession(id: string, sessionId: string): Promise<void> {
+    await this.userRepository.update(id, {
+      $addToSet: { refreshSessionIds: sessionId },
+    });
+  }
+
+  public async replaceRefreshSession(
+    id: string,
+    previousSessionId: string,
+    nextSessionId: string,
+  ): Promise<void> {
+    await this.userRepository.update(id, {
+      $pull: { refreshSessionIds: previousSessionId },
+    });
+    await this.userRepository.update(id, {
+      $addToSet: { refreshSessionIds: nextSessionId },
+    });
+  }
+
+  public async removeRefreshSession(
+    id: string,
+    sessionId: string,
+  ): Promise<void> {
+    await this.userRepository.update(id, {
+      $pull: { refreshSessionIds: sessionId },
+    });
+  }
+
+  public async revokeAllRefreshSessions(id: string): Promise<void> {
+    await this.userRepository.update(id, {
+      $set: { refreshSessionIds: [] },
+    });
   }
 
   public async delete(id: string): Promise<boolean> {

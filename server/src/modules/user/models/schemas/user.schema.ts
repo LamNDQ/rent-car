@@ -25,6 +25,9 @@ export class User {
 
   @Prop({ required: true, enum: ['normal', 'vip', 'admin'], default: 'normal' })
   role!: string;
+
+  @Prop({ type: [String], default: [] })
+  refreshSessionIds!: string[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

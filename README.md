@@ -95,7 +95,7 @@ Dự án tập trung vào nghiệp vụ cho thuê xe theo ngày: danh mục xe, 
 | Tiêu chí | Yêu cầu |
 |---|---|
 | Hiệu năng | Truy vấn availability bằng aggregation; debounce xem trước giá 400 ms; hạn chế gọi API lặp |
-| Bảo mật | Mật khẩu hash bcrypt; JWT trong cookie `HttpOnly`; phân quyền theo role; kiểm tra dữ liệu đầu vào |
+| Bảo mật | Mật khẩu hash bcrypt; JWT trong cookie `HttpOnly`; CSRF double-submit; phân quyền theo role; kiểm tra dữ liệu đầu vào |
 | Khả dụng | Responsive; trạng thái tải/lỗi/rỗng rõ ràng; thông báo lỗi từ backend |
 | Toàn vẹn dữ liệu | Ràng buộc schema; unique email; kiểm tra ngày; kiểm tra sức chứa xe theo khoảng ngày |
 | Khả năng bảo trì | Tách module theo nghiệp vụ; repository/service/controller; DTO có validation |
@@ -203,12 +203,13 @@ MongoDB :27017 / car_rental
 
 ### Luồng đăng nhập và làm mới token
 
-1. Người dùng gửi `POST /users/login` bằng username và mật khẩu.
-2. Backend so khớp mật khẩu bằng bcrypt, ký JWT access token (10 phút) và refresh token (7 ngày).
-3. Hai token được đặt trong cookie `HttpOnly`, `SameSite=Lax`; bật `Secure` khi production.
-4. Client lưu hồ sơ người dùng (không lưu token) và hiển thị giao diện theo vai trò.
-5. Khi API trả `401`, `apiClient` gọi `POST /users/refresh` đúng một lần, sau đó thử lại yêu cầu ban đầu.
-6. Đăng xuất gọi `POST /users/logout` để xóa cookie.
+1. Client gọi `GET /csrf` để nhận CSRF token và cookie tương ứng.
+2. Người dùng gửi `POST /users/login` kèm header `X-CSRF-Token`.
+3. Backend so khớp mật khẩu bằng bcrypt, tạo `sessionId`, lưu vào danh sách phiên hợp lệ của người dùng, rồi ký JWT access token (10 phút) và refresh token (7 ngày).
+4. Hai token được đặt trong cookie `HttpOnly`, `SameSite=Lax`; bật `Secure` khi production.
+5. Client lưu hồ sơ người dùng (không lưu token) và hiển thị giao diện theo vai trò.
+6. Khi API trả `401`, `apiClient` gọi `POST /users/refresh` đúng một lần; backend xoay vòng refresh token và `sessionId`, sau đó client thử lại yêu cầu ban đầu.
+7. Đăng xuất gọi `POST /users/logout` để thu hồi phiên hiện tại và xóa cookie.
 
 ### Luồng tìm xe theo ngày
 
@@ -286,7 +287,7 @@ rent-car/
 │  ├─ src/
 │  │  ├─ main.ts                   Bootstrap, CORS, helmet, static, Swagger
 │  │  ├─ app.module.ts             Cấu hình Mongo, JWT, throttler
-│  │  ├─ auth/                     JWT strategy, guard, roles decorator
+│  │  ├─ auth/                     JWT strategy, guard, roles decorator, CSRF controller
 │  │  ├─ core/                     Repository, interceptor, middleware
 │  │  ├─ modules/
 │  │  │  ├─ user/                  Schema, DTO, service, controller
@@ -306,11 +307,11 @@ rent-car/
 |---|---|
 | Frontend | Next.js 16.2, React 19.2, TypeScript 5, App Router |
 | Giao diện | Tailwind CSS 4, component nội bộ, Radix/shadcn-style, Lucide |
-| Gọi API | Fetch, `credentials: include`, cơ chế refresh token một lần |
+| Gọi API | Fetch, `credentials: include`, CSRF header, refresh token một lần |
 | Backend | NestJS 11, TypeScript, Express platform |
 | Cơ sở dữ liệu | MongoDB, Mongoose 9 |
 | Xác thực | Passport JWT, `@nestjs/jwt`, bcrypt, Google OAuth 2.0 |
-| Bảo vệ | Helmet, CORS có credentials, ValidationPipe, Throttler |
+| Bảo vệ | Helmet, CORS có credentials, CSRF double-submit, ValidationPipe, Throttler |
 | Tài liệu | Swagger UI tại `/api` |
 | Tệp tải lên | Multer `FileInterceptor`, lưu đĩa cục bộ |
 | Ngày và giá | `date-fns` |
@@ -325,7 +326,7 @@ rent-car/
 
 | Collection | Trường chính | Ràng buộc / ghi chú |
 |---|---|---|
-| `users` | `username`, `password`, `email`, `googleId`, `needsProfileSetup`, `role` | `email` unique; `googleId` unique sparse; role enum `normal`/`vip`/`admin`; có timestamps |
+| `users` | `username`, `password`, `email`, `googleId`, `needsProfileSetup`, `role`, `refreshSessionIds` | `email` unique; `googleId` unique sparse; role enum `normal`/`vip`/`admin`; `refreshSessionIds` là danh sách phiên refresh hợp lệ; có timestamps |
 | `cars` | `brand`, `carModel`, `year`, `color`, `seat`, `basePrice`, `stock`, `availableStock`, `isAvailable`, `imgUrl[]` | `seat ≥ 1`; giá và tồn kho `≥ 0`; `isAvailable` mặc định `true`; có optimistic concurrency |
 | `bookings` | `userId`, `carId`, `userRole`, `carBrand`, `carModel`, `carImg`, `startDate`, `endDate`, `dailyPrice`, `subtotal`, `discountApplied`, `discountAmount`, `totalPrice`, `status`, `voucherCode` | `userId`/`carId` tham chiếu; status enum; lưu ảnh chụp thông tin xe; có timestamps |
 
@@ -390,6 +391,7 @@ totalPrice      = 630
 - API JSON, frontend gọi trực tiếp qua `NEXT_PUBLIC_API_URL` (mặc định `http://localhost:3000`).
 - CORS chỉ cho phép origin cấu hình bởi `CLIENT_URL`/`FRONTEND_URL`, mặc định `http://localhost:4000`.
 - Yêu cầu xác thực dùng JWT từ cookie `accessToken` hoặc header `Authorization: Bearer`.
+- Mọi request thay đổi dữ liệu (`POST`, `PUT`, `PATCH`, `DELETE`) phải gửi header `X-CSRF-Token` khớp với cookie `csrfToken`; lấy token qua `GET /csrf`.
 - `ValidationPipe` toàn cục bật `whitelist`, `forbidNonWhitelisted` và `transform`.
 - Một số API booking bọc kết quả trong `{ success, statusCode, data, timestamp }`; `apiClient` tự bóc `data` nếu có.
 - Lỗi trả về theo định dạng mặc định của NestJS, gồm `statusCode`, `message`, `error`.
@@ -399,18 +401,19 @@ totalPrice      = 630
 | Method | Route | Quyền | Nội dung |
 |---|---|---|---|
 | GET | `/` | Public | Kiểm tra server hoạt động |
-| POST | `/users` | Public | Đăng ký tài khoản |
-| POST | `/users/login` | Public | Đăng nhập, đặt cookie access/refresh token |
-| POST | `/users/refresh` | Public (cần refresh cookie) | Cấp lại access token |
-| POST | `/users/logout` | Public | Xóa cookie đăng nhập |
+| GET | `/csrf` | Public | Cấp CSRF token qua JSON và cookie `csrfToken` |
+| POST | `/users` | Public + CSRF | Đăng ký tài khoản; backend luôn gán role `normal` |
+| POST | `/users/login` | Public + CSRF | Đăng nhập, tạo phiên và đặt cookie access/refresh token |
+| POST | `/users/refresh` | Public + CSRF (cần refresh cookie) | Xoay vòng refresh token và cấp lại access token |
+| POST | `/users/logout` | Public + CSRF | Thu hồi phiên hiện tại và xóa cookie đăng nhập |
 | GET | `/users/me` | Đã đăng nhập | Hồ sơ người dùng hiện tại |
 | GET | `/users` | Admin | Danh sách người dùng |
 | GET | `/users/search?filter=...` | Public | Tìm người dùng theo username |
 | GET | `/users/:id` | Đã đăng nhập | Xem người dùng theo id |
-| PUT | `/users/:id` | Đã đăng nhập | Cập nhật người dùng |
-| DELETE | `/users/:id` | Admin | Xóa người dùng |
+| PUT | `/users/:id` | Chủ tài khoản hoặc admin + CSRF | Tự sửa hồ sơ; chỉ admin được đổi `role` |
+| DELETE | `/users/:id` | Admin + CSRF | Xóa người dùng |
 | GET | `/sso/google` | Public | Bắt đầu đăng nhập Google |
-| GET | `/sso/google/callback` | Public | Nhận callback, chuyển hướng về client |
+| GET | `/sso/google/callback` | Public | Nhận callback, đặt cookie phiên và chuyển hướng về client |
 
 ## 5.3. Nhóm API xe
 
@@ -473,32 +476,33 @@ Swagger được cấu hình tại `/api` với tiêu đề “Car Rental API”
 ## 6.1. Đã triển khai
 
 - **Hash mật khẩu:** bcrypt với 10 salt rounds; không lưu mật khẩu thô.
-- **JWT:** access token 10 phút, refresh token 7 ngày; đọc được từ cookie hoặc Bearer header.
+- **JWT:** access token 10 phút, refresh token 7 ngày; đọc được từ cookie hoặc Bearer header; payload chứa `sessionId`.
+- **JWT secret bắt buộc:** server dừng khởi động nếu `JWT_SECRET` thiếu, ngắn hơn 32 ký tự hoặc còn là giá trị mặc định/fallback.
 - **Cookie:** `HttpOnly`, `SameSite=Lax`, `Secure` khi production, giảm rủi ro đọc token bằng JavaScript.
+- **CSRF double-submit:** `GET /csrf` cấp token qua JSON và cookie `HttpOnly`; mọi request thay đổi dữ liệu phải gửi header `X-CSRF-Token` khớp cookie. Client tự lấy lại token và thử lại một lần khi token hết hạn.
+- **Xoay vòng và thu hồi refresh token:** mỗi lần đăng nhập tạo `sessionId`; refresh tạo `sessionId` mới và vô hiệu hóa token cũ. Logout thu hồi phiên hiện tại; đổi mật khẩu thu hồi toàn bộ phiên.
+- **Kiểm tra phiên ở mọi request:** `JwtStrategy` đối chiếu `sessionId` với danh sách phiên còn hiệu lực và đọc role hiện tại từ database, nên token bị thu hồi hoặc role bị đổi có hiệu lực ngay.
 - **Phân quyền:** `JwtAuthGuard` xác thực, `RolesGuard` kiểm tra role; API admin được bảo vệ ở backend.
 - **Validation:** DTO với `class-validator`; `ValidationPipe` loại bỏ trường lạ.
+- **Đăng ký an toàn:** DTO đăng ký không còn trường `role`; backend luôn gán `normal`, request gửi `role` bị từ chối.
+- **Cập nhật người dùng:** `PUT /users/:id` chỉ cho phép chủ tài khoản hoặc admin; chỉ admin được đổi role. Response loại bỏ `password` và `refreshSessionIds`.
 - **Helmet:** bật các header bảo mật mặc định; cấu hình `Cross-Origin-Resource-Policy: cross-origin` để client tải ảnh từ API.
-- **CORS:** chỉ origin được cấu hình, có `credentials: true`.
+- **CORS:** chỉ origin được cấu hình, có `credentials: true` và allowlist header `X-CSRF-Token`.
 - **Giới hạn tải:** upload chỉ admin, giới hạn 5 MB, kiểm tra loại tệp.
 - **Giới hạn tần suất:** `ThrottlerModule` toàn cục 100 yêu cầu/phút mỗi IP.
 - **Kiểm tra quyền sở hữu:** khi sửa/xóa đơn, backend so sánh `userId` trừ khi người gọi là admin.
 - **Kiểm tra giá ở server:** client chỉ xem trước; khi tạo đơn backend tính lại toàn bộ để tránh sửa giá từ trình duyệt.
 - **Ảnh chụp dữ liệu:** đơn giữ thông tin xe và role tại thời điểm đặt, tránh thay đổi lịch sử.
+- **SSO an toàn hơn:** callback đặt cookie phiên và chuyển hướng về client, không còn truyền access token qua query string.
 
-## 6.2. Hạn chế bảo mật cần khắc phục
+## 6.2. Hạn chế bảo mật còn lại
 
-- **Chưa có CSRF token:** dù cookie dùng `SameSite=Lax`, các request thay đổi dữ liệu vẫn nên có CSRF protection bổ sung.
-- **JWT secret có giá trị fallback:** nếu thiếu `JWT_SECRET`, hệ thống dùng chuỗi mặc định; production bắt buộc phải cấu hình secret mạnh.
-- **Refresh token chưa xoay vòng/thu hồi:** logout chỉ xóa cookie; token cũ vẫn có thể dùng lại nếu bị lộ. Chưa có danh sách thu hồi hoặc `tokenVersion`.
-- **Đăng ký chấp nhận `role` từ client:** DTO đăng ký cho phép truyền `role`, nên cần bỏ trường này hoặc ép về `normal` ở backend.
-- **Cập nhật người dùng chưa kiểm tra chủ sở hữu:** `PUT /users/:id` chỉ yêu cầu đăng nhập; người dùng có thể sửa người khác, bao gồm role và mật khẩu. Đây là lỗi cần sửa ưu tiên cao.
-- **API cập nhật người dùng có thể trả về hash mật khẩu:** cần dùng allowlist trường trả về hoặc `select: false` cho `password`.
 - **`GET /users/search` công khai:** có thể bị dùng để dò username; nên yêu cầu đăng nhập hoặc admin.
-- **SSO truyền token qua query string:** token có thể lọt vào lịch sử trình duyệt/referrer; nên dùng cookie ngắn hạn hoặc mã trao đổi một lần.
 - **Chưa có giới hạn đăng nhập riêng:** throttle 100/phút là toàn cục, chưa đủ chặt cho chống brute force.
 - **Swagger công khai:** nên tắt hoặc bảo vệ ở production.
 - **Thông tin người dùng lưu ở localStorage:** chỉ là hồ sơ, không chứa token, nhưng vẫn cần lưu ý khi kiểm tra quyền phía client.
 - **Race condition khi đặt xe:** kiểm tra sức chứa và ghi đơn chưa nằm trong transaction/khóa nguyên tử; hai request đồng thời có thể cùng vượt qua kiểm tra. Cần transaction hoặc cập nhật nguyên tử.
+- **Client không phải trình duyệt:** phải gọi `GET /csrf` trước và gửi cookie/header tương ứng cho request thay đổi dữ liệu.
 
 ---
 
@@ -513,7 +517,9 @@ Swagger được cấu hình tại `/api` với tiêu đề “Car Rental API”
 | Ảnh chụp đơn đặt | Lưu brand/model/ảnh/role tại thời điểm đặt | Bảo toàn lịch sử |
 | Gallery ảnh xe | Mảng `imgUrl`, thumbnail, ảnh bìa | Ảnh đầu tiên là cover |
 | Upload ảnh | Kéo-thả/chọn tệp, Multer, UUID, giới hạn 5 MB | Lưu đĩa cục bộ |
+| CSRF double-submit | `GET /csrf`, cookie `HttpOnly` + header `X-CSRF-Token` | Client tự lấy lại token khi hết hạn |
 | Refresh token một lần | Biến `refreshPromise` dùng chung trong `apiClient` | Tránh bão request refresh |
+| Xoay vòng phiên | `sessionId` mới mỗi lần refresh; thu hồi khi logout/đổi mật khẩu | Token cũ không dùng lại được |
 | SSO Google | Passport Google OAuth 2.0 | Tài khoản mới cần đặt username |
 | Quản trị người dùng | Bảng, tìm kiếm, modal đổi role | Gọi `PUT /users/:id` |
 | Quản trị đơn | Bảng, tạo/sửa/xóa đơn | Admin thao tác trên mọi đơn |
@@ -612,7 +618,13 @@ CLIENT_URL=http://localhost:4000
 JWT_SECRET=thay_bang_chuoi_ngau_nhien_manh
 ```
 
-Nếu dùng Google SSO, bổ sung:
+`JWT_SECRET` bắt buộc phải có ít nhất 32 ký tự và không được dùng giá trị mặc định/fallback; server sẽ dừng khởi động nếu cấu hình không hợp lệ. Có thể tạo secret bằng:
+
+```bash
+openssl rand -hex 32
+```
+
+Sau khi đổi `JWT_SECRET`, mọi token cũ sẽ không còn hợp lệ. Nếu dùng Google SSO, bổ sung:
 
 ```dotenv
 GOOGLE_CLIENT_ID=...
@@ -633,30 +645,6 @@ NEXT_PUBLIC_API_URL=http://localhost:3000
 - Có thể kiểm tra bằng MongoDB Compass hoặc `mongosh`.
 - Dữ liệu mẫu gồm 8 xe với ảnh trong `client/public/cars/car-1.jpg` … `car-8.jpg`.
 
-## 9.5. Docker Compose
-
-```bash
-docker compose up --build
-```
-
-Các service:
-
-| Service | Container | Cổng |
-|---|---|---|
-| `client` | `car_rental_client` | `4000:4000` |
-| `api` | `car_rental_server` | `3000:3000` |
-| `mongo_db` | `car_rental_mongo` | `27017:27017` |
-
-MongoDB dùng volume `mongo_data` để giữ dữ liệu.
-
-**Lưu ý production:**
-
-- Ảnh upload nằm trong `server/uploads` và **chưa được mount volume** trong Docker Compose; container bị xóa sẽ mất ảnh. Cần mount volume hoặc chuyển sang lưu trữ đối tượng (S3/Cloudinary).
-- Đặt `APP_BASE_URL` đúng domain public để URL ảnh trả về chính xác.
-- Đặt `CLIENT_URL` đúng domain frontend để CORS hoạt động.
-- Bắt buộc đặt `JWT_SECRET` mạnh; không dùng giá trị fallback.
-- Chưa có pipeline CI/CD tự động trong repository.
-
 ---
 
 # 10. KẾT QUẢ ĐẠT ĐƯỢC
@@ -673,8 +661,8 @@ MongoDB dùng volume `mongo_data` để giữ dữ liệu.
 | Quản lý đơn | Hoàn thành: xem, tạo, sửa, xóa; admin xem toàn bộ |
 | Quản lý xe | Hoàn thành: CRUD, tìm kiếm, trạng thái, tồn kho |
 | Quản lý ảnh | Hoàn thành: URL, kéo-thả, nhiều ảnh, ảnh bìa |
-| Xác thực | Hoàn thành: đăng ký, đăng nhập, refresh, logout, Google SSO |
-| Phân quyền | Hoàn thành: guard backend và chặn route frontend |
+| Xác thực | Hoàn thành: đăng ký an toàn, đăng nhập, CSRF, refresh xoay vòng, logout thu hồi phiên, Google SSO |
+| Phân quyền | Hoàn thành: guard backend, kiểm tra chủ sở hữu khi cập nhật người dùng, chặn route frontend |
 | Quản lý người dùng | Hoàn thành: danh sách, tìm kiếm, đổi role |
 | Tài liệu API | Hoàn thành: Swagger tại `/api` |
 | Kiểm thử | Hoàn thành: 36 unit test |
@@ -704,7 +692,8 @@ MongoDB dùng volume `mongo_data` để giữ dữ liệu.
 
 ## 11.2. Kỹ thuật và bảo mật
 
-- Các vấn đề bảo mật đã nêu ở mục 6.2: role từ client, cập nhật người dùng thiếu kiểm tra sở hữu, lộ hash mật khẩu ở API update, thiếu CSRF, JWT fallback, refresh token chưa thu hồi.
+- Đã xử lý các lỗi bảo mật ưu tiên: role từ client, thiếu kiểm tra sở hữu ở `PUT /users/:id`, lộ hash mật khẩu, thiếu CSRF, JWT fallback, refresh token chưa xoay vòng/thu hồi, SSO lộ token qua query string.
+- Các hạn chế còn lại: `GET /users/search` công khai, chưa có rate limit riêng cho đăng nhập, Swagger công khai.
 - Kiểm tra sức chứa và ghi đơn chưa nguyên tử, có nguy cơ race condition.
 - Chưa có integration/E2E test; test hiện tại dùng mock repository.
 - Dashboard admin đã có thống kê doanh thu, đơn đặt, tồn kho và người dùng nhưng chưa có biểu đồ theo thời gian.
@@ -716,7 +705,6 @@ MongoDB dùng volume `mongo_data` để giữ dữ liệu.
 - Metadata Next.js đã được cập nhật; nội dung giao diện dùng tiếng Anh.
 - Một số dependency UI (MUI, Radix) được cài nhưng chưa dùng nhất quán.
 - `GET /users/search` và Swagger đang công khai.
-- JWT access token 10 phút nhưng cấu hình JWT xuất hiện ở hai nơi (`AppModule` và `AuthModule`) với thời hạn khác nhau, cần thống nhất để tránh nhầm lẫn.
 - Dockerfile dùng `node:26-alpine`, cần kiểm tra tương thích với môi trường triển khai thực tế.
 
 ## 11.3. Dữ liệu và giao diện
@@ -731,7 +719,7 @@ MongoDB dùng volume `mongo_data` để giữ dữ liệu.
 
 # 12. HƯỚNG PHÁT TRIỂN
 
-1. **Siết bảo mật:** bỏ `role` khỏi API đăng ký, kiểm tra quyền sở hữu ở `PUT /users/:id`, không trả `password`, thêm CSRF, xoay vòng refresh token, thu hồi token khi logout/đổi mật khẩu, bắt buộc `JWT_SECRET`.
+1. **Siết bảo mật nâng cao:** thêm rate limit riêng cho đăng nhập, bảo vệ `GET /users/search`, tắt Swagger ở production, bổ sung audit log và quét nội dung ảnh tải lên.
 2. **Giao dịch nguyên tử:** dùng transaction hoặc cập nhật nguyên tử khi kiểm tra sức chứa và tạo đơn để chống race condition.
 3. **Thanh toán và hợp đồng:** tích hợp cổng thanh toán, đặt cọc, hóa đơn, hợp đồng điện tử.
 4. **Quản lý vận hành:** lịch bảo dưỡng, trạng thái xe, giao nhận, phụ phí, bảo hiểm.

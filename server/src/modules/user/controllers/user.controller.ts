@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   NotFoundException,
@@ -15,11 +16,17 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { UserService } from '../services/user.service';
 import { UserDto, UserLoginDto, UpdateUserDto } from '../models/dto/user.dto';
 import { JwtAuthGuard } from '../../../auth/jwt/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/roles/roles.guard';
 import { Roles } from '../../../auth/roles/roles.decorator';
+import {
+  REFRESH_TOKEN_COOKIE,
+  clearAuthCookies,
+  setAuthCookies,
+} from '../../../auth/auth.cookies';
 import { JwtService } from '@nestjs/jwt';
 import {
   USER_CONTROLLER_PATH,
@@ -80,6 +87,7 @@ export class UserController {
   private mapUser(user: any) {
     const userObj = user.toObject ? user.toObject() : { ...user };
     delete userObj.password;
+    delete userObj.refreshSessionIds;
     return {
       ...userObj,
       id: userObj._id?.toString() || userObj.id,
@@ -100,73 +108,100 @@ export class UserController {
       throw new UnauthorizedException(USER_INVALID_CREDENTIALS_MESSAGE);
     }
 
+    const sessionId = randomUUID();
+    await this.userService.addRefreshSession(user._id.toString(), sessionId);
+
     const payload = {
       username: user.username,
       email: user.email,
       role: user.role,
-      id: user._id,
+      id: user._id.toString(),
+      sessionId,
     };
     const token = this.jwtService.sign(payload);
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
-    res.cookie('accessToken', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 10 * 60 * 1000, // 10 minutes
-    });
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    setAuthCookies(res, token, refreshToken);
 
     return {
       username: user.username,
       email: user.email,
       role: user.role,
-      id: user._id,
+      id: user._id.toString(),
     };
   }
 
   @Post('refresh')
   @HttpCode(200)
-  refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies?.refreshToken;
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token not found');
     }
 
     try {
       const payload = this.jwtService.verify(refreshToken);
+      const user = await this.userService.findOneById(payload.id);
+
+      if (
+        !user ||
+        !payload.sessionId ||
+        !(user.refreshSessionIds ?? []).includes(payload.sessionId)
+      ) {
+        throw new UnauthorizedException('Refresh token has been revoked');
+      }
+
+      const sessionId = randomUUID();
+      await this.userService.replaceRefreshSession(
+        user._id.toString(),
+        payload.sessionId,
+        sessionId,
+      );
+
       const newPayload = {
-        username: payload.username,
-        email: payload.email,
-        role: payload.role,
-        id: payload.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        id: user._id.toString(),
+        sessionId,
       };
       const token = this.jwtService.sign(newPayload);
-
-      res.cookie('accessToken', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 10 * 60 * 1000, // 10 minutes
+      const newRefreshToken = this.jwtService.sign(newPayload, {
+        expiresIn: '7d',
       });
+
+      setAuthCookies(res, token, newRefreshToken);
 
       return { token };
     } catch {
+      clearAuthCookies(res);
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
   @Post('logout')
   @HttpCode(200)
-  logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
+
+    if (refreshToken) {
+      try {
+        const payload = this.jwtService.verify(refreshToken);
+        if (payload.id && payload.sessionId) {
+          await this.userService.removeRefreshSession(
+            payload.id,
+            payload.sessionId,
+          );
+        }
+      } catch {
+        // Expired or invalid refresh token: only clear the cookies.
+      }
+    }
+
+    clearAuthCookies(res);
     return { message: 'Logged out successfully' };
   }
 
@@ -183,7 +218,10 @@ export class UserController {
       if (existingEmail) {
         throw new BadRequestException(USER_FIELD_EXISTS_MESSAGE('Email'));
       }
-      const newUser = await this.userService.create(data);
+      const newUser = await this.userService.create({
+        ...data,
+        role: 'normal',
+      });
       return this.mapUser(newUser);
     } catch (error: any) {
       // Catch specific errors or re-throw
@@ -196,8 +234,24 @@ export class UserController {
 
   @Put(':id')
   @UseGuards(JwtAuthGuard)
-  async update(@Param('id') id: string, @Body() updateData: UpdateUserDto) {
-    return await this.userService.update(id, updateData);
+  async update(
+    @Param('id') id: string,
+    @Body() updateData: UpdateUserDto,
+    @Req() req: any,
+  ) {
+    const isAdmin = req.user?.role === 'admin';
+    const isSelf = req.user?.id === id;
+
+    if (!isAdmin && !isSelf) {
+      throw new ForbiddenException('You can only update your own account');
+    }
+
+    if (!isAdmin && updateData.role !== undefined) {
+      throw new ForbiddenException('Only admins can change roles');
+    }
+
+    const updatedUser = await this.userService.update(id, updateData);
+    return this.mapUser(updatedUser);
   }
 
   @Delete(':id')

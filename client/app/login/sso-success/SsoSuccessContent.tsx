@@ -1,36 +1,30 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { CarFront } from "lucide-react";
 import { userApi } from "@app/lib/api/userApi";
 import { setStoredUser } from "@app/hooks";
 
 export default function SsoSuccessContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token");
 
   useEffect(() => {
-    if (token) {
-      userApi
-        .getMe(token)
-        .then((userData) => {
-          setStoredUser(userData);
-          if (userData.needsProfileSetup) {
-            router.push("/login/sso-setup");
-          } else {
-            router.push("/");
-          }
-        })
-        .catch((err) => {
-          console.error("SSO success error:", err);
-          router.push("/login?error=sso_failed");
-        });
-    } else {
-      router.push("/login");
-    }
-  }, [token, router]);
+    userApi
+      .getMe()
+      .then((userData) => {
+        setStoredUser(userData);
+        if (userData.needsProfileSetup) {
+          router.push("/login/sso-setup");
+        } else {
+          router.push("/");
+        }
+      })
+      .catch((err) => {
+        console.error("SSO success error:", err);
+        router.push("/login?error=sso_failed");
+      });
+  }, [router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">

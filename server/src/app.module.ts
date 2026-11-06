@@ -5,8 +5,6 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CarModule } from '@modules/car/car.module';
 import { BookingModule } from '@modules/booking/booking.module';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
 import { LoggerMiddleware } from '@core/middlewares/logger.middleware';
 import { CarController } from '@modules/car/controllers';
 import { UserModule } from '@modules/user/user.module';
@@ -42,19 +40,8 @@ import { APP_GUARD } from '@nestjs/core';
     CarModule,
     BookingModule,
     UserModule,
-    SsoModule,
     AuthModule,
-    PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        secret:
-          configService.get<string>('JWT_SECRET') ||
-          'THIS_IS_A_FALLBACK_SECRET_CHANGE_ME_IN_PRODUCTION',
-        signOptions: { expiresIn: '60m' },
-      }),
-      inject: [ConfigService],
-    }),
+    SsoModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { UserService } from '../user/services/user.service';
 import { UserDocument } from '../user/models/schemas/user.schema';
 
@@ -45,5 +46,11 @@ export class SsoService {
     }
 
     return user;
+  }
+
+  async createSession(user: UserDocument): Promise<string> {
+    const sessionId = randomUUID();
+    await this.userService.addRefreshSession(user._id.toString(), sessionId);
+    return sessionId;
   }
 }

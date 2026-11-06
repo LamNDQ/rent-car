@@ -21,11 +21,6 @@ export class UserDto {
   @IsNotEmpty()
   @IsEmail()
   email!: string;
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['normal', 'vip', 'admin'])
-  role?: string;
 }
 
 export class UpdateUserDto {
